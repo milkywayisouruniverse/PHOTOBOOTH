@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Under the Sea Photo Booth 🐚</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=Quicksand:wght@400;600;700&display=swap');
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    min-height: 100vh;
+    background: linear-gradient(160deg, #0d4f6e 0%, #1a7a8a 35%, #2aacb0 65%, #7ed4d8 100%);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Quicksand', sans-serif;
+    overflow: hidden; position: relative;
+  }
+
+  .bubble { position:absolute; border-radius:50%; background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.15); animation:float-up linear infinite; pointer-events:none; }
+  @keyframes float-up { 0%{transform:translateY(110vh);opacity:0} 10%{opacity:1} 90%{opacity:0.4} 100%{transform:translateY(-20vh);opacity:0} }
+  .seaweed { position:absolute; bottom:0; font-size:3.2rem; opacity:0.6; animation:sway 3s ease-in-out infinite; pointer-events:none; }
+  @keyframes sway { 0%,100%{transform:rotate(-8deg)} 50%{transform:rotate(8deg)} }
+  .floaty { position:absolute; animation:drift 5s ease-in-out infinite; pointer-events:none; font-size:1.8rem; }
+  @keyframes drift { 0%,100%{transform:translateY(0) rotate(-5deg)} 50%{transform:translateY(-14px) rotate(5deg)} }
+
+  .app { display:flex; gap:20px; align-items:flex-start; z-index:10; position:relative; }
+
+  /* Camera Panel */
+  .camera-panel {
+    background: rgba(255,255,255,0.12);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 20px;
+    padding: 16px;
+    display: flex; flex-direction:column; align-items:center; gap:12px;
+    min-width: 260px;
+  }
+  .camera-title { font-family:'Playfair Display',serif; color:white; font-size:1rem; text-align:center; text-shadow:0 2px 8px rgba(0,0,0,0.3); }
+  .camera-title span { font-size:0.7rem; display:block; letter-spacing:2px; text-transform:uppercase; color:rgba(255,255,255,0.7); margin-top:2px; }
+
+  .viewfinder {
+    position:relative; width:240px; height:200px;
+    border-radius:14px; overflow:hidden;
+    border:3px solid rgba(255,255,255,0.4);
+    background:#0d3040;
+    box-shadow:0 8px 24px rgba(0,0,0,0.4);
+  }
+  #video { width:100%; height:100%; object-fit:cover; transform:scaleX(-1); }
+  .vf-overlay { position:absolute; inset:0; border:2px solid rgba(255,255,255,0.2); border-radius:12px; pointer-events:none; }
+  .vf-corner { position:absolute; width:18px; height:18px; border-color:#fff; border-style:solid; opacity:0.8; }
+  .vf-corner.tl { top:6px;left:6px; border-width:2px 0 0 2px; }
+  .vf-corner.tr { top:6px;right:6px; border-width:2px 2px 0 0; }
+  .vf-corner.bl { bottom:6px;left:6px; border-width:0 0 2px 2px; }
+  .vf-corner.br { bottom:6px;right:6px; border-width:0 2px 2px 0; }
+  .countdown-display { position:absolute; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,0.3); font-size:4rem; color:white; font-weight:700; font-family:'Playfair Display',serif; text-shadow:0 0 20px rgba(255,200,100,0.8); }
+  .flash-overlay { position:absolute; inset:0; background:white; opacity:0; pointer-events:none; transition:opacity 0.1s; border-radius:10px; }
+  .cam-placeholder { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; color:rgba(255,255,255,0.7); font-size:0.75rem; text-align:center; padding:10px; }
+  .cam-placeholder .icon { font-size:2.5rem; }
+
+  .slot-selector { display:flex; gap:8px; align-items:center; }
+  .slot-selector label { color:rgba(255,255,255,0.85); font-size:0.75rem; font-weight:600; letter-spacing:1px; text-transform:uppercase; }
+  .slot-btns { display:flex; gap:5px; }
+  .slot-btn { width:32px; height:32px; border-radius:50%; border:2px solid rgba(255,255,255,0.4); background:rgba(255,255,255,0.1); color:white; font-weight:700; font-size:0.85rem; cursor:pointer; transition:all 0.2s; }
+  .slot-btn.active { background:#e8806a; border-color:#e8806a; box-shadow:0 3px 10px rgba(232,128,106,0.5); }
+  .slot-btn:hover:not(.active) { background:rgba(255,255,255,0.2); }
+
+  .timer-row { display:flex; gap:8px; align-items:center; }
+  .timer-row label { color:rgba(255,255,255,0.85); font-size:0.75rem; font-weight:600; letter-spacing:1px; text-transform:uppercase; }
+  .timer-btns { display:flex; gap:4px; }
+  .timer-btn { padding:4px 10px; border-radius:12px; border:1.5px solid rgba(255,255,255,0.35); background:rgba(255,255,255,0.1); color:white; font-size:0.72rem; font-weight:600; cursor:pointer; transition:all 0.2s; font-family:'Quicksand',sans-serif; }
+  .timer-btn.active { background:#4ab8b8; border-color:#4ab8b8; }
+
+  .snap-btn { width:72px; height:72px; border-radius:50%; background:linear-gradient(135deg,#e8806a,#d45a45); border:4px solid rgba(255,255,255,0.5); color:white; font-size:1.8rem; cursor:pointer; box-shadow:0 6px 20px rgba(232,128,106,0.6),0 0 0 2px rgba(232,128,106,0.3); transition:all 0.15s; display:flex; align-items:center; justify-content:center; }
+  .snap-btn:hover { transform:scale(1.05); }
+  .snap-btn:active { transform:scale(0.95); }
+  .snap-btn:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
+
+  .start-cam-btn { width:100%; padding:10px; background:linear-gradient(135deg,#4ab8b8,#1a8a8a); border:none; border-radius:12px; color:white; font-family:'Quicksand',sans-serif; font-size:0.85rem; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; cursor:pointer; box-shadow:0 4px 14px rgba(74,184,184,0.4); transition:all 0.2s; }
+  .start-cam-btn:hover { transform:translateY(-1px); }
+
+  /* Strip Panel */
+  .strip-panel { display:flex; flex-direction:column; align-items:center; }
+  .hat-topper { font-size:3.2rem; margin-bottom:-8px; position:relative; z-index:20; filter:drop-shadow(0 5px 10px rgba(0,0,0,0.3)); }
+
+  .frame-outer { background:linear-gradient(135deg,#f5e6c8,#e8d5a0,#c9a84c,#e8d5a0,#f5e6c8); border-radius:22px; padding:11px; box-shadow:0 0 0 3px rgba(201,168,76,0.4),0 16px 50px rgba(0,0,0,0.5),inset 0 1px 0 rgba(255,255,255,0.6); position:relative; }
+  .corner-deco { position:absolute; font-size:1.5rem; filter:drop-shadow(0 1px 3px rgba(0,0,0,0.3)); z-index:5; }
+  .corner-deco.tl{top:-8px;left:-8px;transform:rotate(-30deg)} .corner-deco.tr{top:-8px;right:-8px;transform:rotate(30deg)} .corner-deco.bl{bottom:-8px;left:-8px;transform:rotate(200deg)} .corner-deco.br{bottom:-8px;right:-8px;transform:rotate(150deg)}
+  .pearl-strand { position:absolute; inset:3px; border-radius:16px; border:2px dashed rgba(255,255,255,0.5); pointer-events:none; }
+
+  .frame-inner { background:linear-gradient(180deg,#e8f8f8,#d0efef); border-radius:14px; padding:14px; display:flex; flex-direction:column; gap:8px; width:240px; }
+
+  .strip-title { text-align:center; }
+  .strip-title h1 { font-family:'Playfair Display',serif; font-size:1.3rem; color:#1a6b8a; letter-spacing:1px; line-height:1.2; }
+  .strip-title h1 em { font-style:italic; color:#2aacb0; }
+  .sub { font-size:0.6rem; color:#4ab8b8; letter-spacing:3px; text-transform:uppercase; font-weight:600; margin-top:2px; }
+  .pearl-div { display:flex; align-items:center; justify-content:center; gap:4px; margin-top:4px; }
+  .pd { width:6px; height:6px; background:radial-gradient(circle at 35% 35%,#fff,#d4c5b0); border-radius:50%; box-shadow:0 1px 2px rgba(0,0,0,0.2); }
+  .pd.big { width:9px; height:9px; }
+
+  .photo-slot { position:relative; width:100%; height:100px; border-radius:10px; overflow:hidden; border:2px solid rgba(255,255,255,0.6); box-shadow:0 3px 10px rgba(0,0,0,0.1); background:linear-gradient(135deg,#b8e8e8,#9dd4d4); cursor:pointer; transition:transform 0.15s; }
+  .photo-slot:hover { transform:scale(1.02); }
+  .photo-slot.active-slot { border-color:#e8806a; box-shadow:0 0 0 2px #e8806a,0 4px 14px rgba(232,128,106,0.4); }
+  .slot-photo { width:100%; height:100%; object-fit:cover; transform:scaleX(-1); display:none; }
+  .slot-photo.visible { display:block; }
+
+  .slot-placeholder { position:absolute; inset:0; display:flex; align-items:flex-end; justify-content:space-around; padding:4px 8px; }
+  .wave-bg { position:absolute; bottom:0; left:0; right:0; height:38%; background:linear-gradient(180deg,transparent,rgba(26,107,138,0.25)); border-radius:0 0 8px 8px; }
+  .sand-bg { position:absolute; bottom:0; left:0; right:0; height:18%; background:linear-gradient(180deg,#e8d5a0,#d4c080); border-radius:0 0 8px 8px; }
+  .se { font-size:1.6rem; position:relative; z-index:2; filter:drop-shadow(0 1px 3px rgba(0,0,0,0.15)); margin-bottom:6px; }
+  .se.lg { font-size:2rem; }
+  .se.sm { font-size:1.2rem; }
+
+  .slot-lbl { position:absolute; top:5px; right:6px; background:rgba(255,255,255,0.75); border-radius:20px; padding:1px 7px; font-size:0.55rem; color:#1a6b8a; font-weight:700; letter-spacing:1px; text-transform:uppercase; z-index:3; }
+  .slot-spark { position:absolute; top:5px; left:6px; font-size:0.9rem; z-index:3; }
+  .slot-num { position:absolute; bottom:5px; left:7px; background:rgba(0,0,0,0.3); color:white; border-radius:50%; width:18px; height:18px; display:flex; align-items:center; justify-content:center; font-size:0.6rem; font-weight:700; z-index:3; }
+  .retake-btn { position:absolute; bottom:5px; right:6px; background:rgba(232,128,106,0.85); color:white; border:none; border-radius:10px; padding:2px 7px; font-size:0.55rem; font-weight:700; letter-spacing:0.5px; cursor:pointer; z-index:3; font-family:'Quicksand',sans-serif; display:none; }
+  .retake-btn.show { display:block; }
+
+  .strip-bottom { display:flex; justify-content:space-between; align-items:center; padding:2px 0 0; }
+  .bottom-emojis { display:flex; gap:4px; font-size:1.1rem; }
+  .stamp { background:linear-gradient(135deg,#e8806a,#d45a45); color:white; border-radius:50%; width:36px; height:36px; display:flex; align-items:center; justify-content:center; font-size:1.2rem; box-shadow:0 2px 8px rgba(232,128,106,0.5); border:2px solid rgba(255,255,255,0.4); }
+
+  .print-btn { width:100%; padding:9px; background:linear-gradient(135deg,#e8806a,#d4504a); border:none; border-radius:10px; color:white; font-family:'Quicksand',sans-serif; font-size:0.75rem; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; cursor:pointer; box-shadow:0 4px 14px rgba(232,128,106,0.5); transition:all 0.2s; position:relative; }
+  .print-btn::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg,rgba(255,255,255,0.2) 0%,transparent 60%); border-radius:10px; }
+  .print-btn:hover { transform:translateY(-1px); }
+
+  .footer-tag { margin-top:6px; background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.25); border-radius:20px; padding:3px 14px; font-size:0.55rem; color:rgba(255,255,255,0.9); letter-spacing:2px; text-transform:uppercase; font-weight:600; }
+  .status-msg { color:rgba(255,255,255,0.9); font-size:0.72rem; text-align:center; min-height:16px; font-weight:600; }
+  canvas { display:none; }
+
+  @media (max-width:600px) {
+    .app { flex-direction:column; align-items:center; }
+    body { overflow-y:auto; align-items:flex-start; padding:16px 0; }
+  }
+</style>
+</head>
+<body>
+
+<div class="bubble" style="width:50px;height:50px;top:8%;left:5%;animation-duration:9s;animation-delay:0s"></div>
+<div class="bubble" style="width:28px;height:28px;top:20%;right:4%;animation-duration:7s;animation-delay:2s"></div>
+<div class="bubble" style="width:65px;height:65px;top:55%;left:1%;animation-duration:11s;animation-delay:1s"></div>
+<div class="bubble" style="width:20px;height:20px;bottom:15%;right:6%;animation-duration:8s;animation-delay:3s"></div>
+<div class="seaweed" style="left:0;animation-delay:0s">🌿</div>
+<div class="seaweed" style="right:0;animation-delay:1s">🌿</div>
+<div class="floaty" style="top:6%;left:3%;animation-delay:0s">🐠</div>
+<div class="floaty" style="top:12%;right:3%;animation-delay:1.2s;font-size:1.3rem">⭐</div>
+<div class="floaty" style="bottom:12%;left:2%;animation-delay:2s;font-size:1.4rem">🐡</div>
+<div class="floaty" style="bottom:18%;right:3%;animation-delay:0.5s;font-size:1.3rem">🦀</div>
+
+<canvas id="canvas"></canvas>
+
+<div class="app">
+
+  <!-- CAMERA PANEL -->
+  <div class="camera-panel">
+    <div class="camera-title">🎥 Live Camera<span>Choose a slot, then snap!</span></div>
+
+    <div class="viewfinder">
+      <video id="video" autoplay playsinline></video>
+      <div class="vf-overlay">
+        <div class="vf-corner tl"></div><div class="vf-corner tr"></div>
+        <div class="vf-corner bl"></div><div class="vf-corner br"></div>
+      </div>
+      <div class="countdown-display" id="countdownDisplay"></div>
+      <div class="flash-overlay" id="flashOverlay"></div>
+      <div class="cam-placeholder" id="camPlaceholder">
+        <div class="icon">🎥</div>
+        <div>Click "Start Camera"<br>to begin!</div>
+      </div>
+    </div>
+
+    <div class="slot-selector">
+      <label>Slot</label>
+      <div class="slot-btns">
+        <button class="slot-btn active" onclick="selectSlot(1)">1</button>
+        <button class="slot-btn" onclick="selectSlot(2)">2</button>
+        <button class="slot-btn" onclick="selectSlot(3)">3</button>
+      </div>
+    </div>
+
+    <div class="timer-row">
+      <label>Timer</label>
+      <div class="timer-btns">
+        <button class="timer-btn active" onclick="setTimer(0,this)">Off</button>
+        <button class="timer-btn" onclick="setTimer(3,this)">3s</button>
+        <button class="timer-btn" onclick="setTimer(5,this)">5s</button>
+      </div>
+    </div>
+
+    <button class="snap-btn" id="snapBtn" onclick="takePhoto()" disabled>📸</button>
+    <div class="status-msg" id="statusMsg">Start your camera to begin 🌊</div>
+    <button class="start-cam-btn" id="startCamBtn" onclick="startCamera()">🌊 Start Camera</button>
+  </div>
+
+  <!-- STRIP PANEL -->
+  <div class="strip-panel">
+    <div class="hat-topper">🪸🎩🪸</div>
+    <div class="frame-outer">
+      <div class="corner-deco tl">🐚</div><div class="corner-deco tr">🪸</div>
+      <div class="corner-deco bl">🪸</div><div class="corner-deco br">🐚</div>
+      <div class="pearl-strand"></div>
+      <div class="frame-inner">
+
+        <div class="strip-title">
+          <h1>Under the Sea<br><em>Photo Booth</em></h1>
+          <div class="sub">Dive in &amp; smile ✨</div>
+          <div class="pearl-div">
+            <div class="pd"></div><div class="pd big"></div><div class="pd"></div>
+            <div class="pd big"></div><div class="pd"></div>
+          </div>
+        </div>
+
+        <!-- Slot 1 -->
+        <div class="photo-slot active-slot" id="slot1" onclick="selectSlot(1)">
+          <img class="slot-photo" id="photo1" src="" alt="">
+          <div class="slot-placeholder" id="placeholder1">
+            <div class="wave-bg"></div><div class="sand-bg"></div>
+            <span class="se">🐢</span><span class="se lg">🪸</span><span class="se">🐠</span><span class="se sm">🐚</span>
+          </div>
+          <div class="slot-lbl">📸 Snap!</div>
+          <div class="slot-spark">✨</div>
+          <div class="slot-num">1</div>
+          <button class="retake-btn" id="retake1" onclick="retakePhoto(1,event)">↩ Retake</button>
+        </div>
+
+        <!-- Slot 2 -->
+        <div class="photo-slot" id="slot2" onclick="selectSlot(2)">
+          <img class="slot-photo" id="photo2" src="" alt="">
+          <div class="slot-placeholder" id="placeholder2">
+            <div class="wave-bg"></div><div class="sand-bg"></div>
+            <span class="se sm">🦭</span><span class="se lg">🐡</span><span class="se">🪸</span><span class="se">⭐</span>
+          </div>
+          <div class="slot-lbl">📸 Smile!</div>
+          <div class="slot-spark">🌟</div>
+          <div class="slot-num">2</div>
+          <button class="retake-btn" id="retake2" onclick="retakePhoto(2,event)">↩ Retake</button>
+        </div>
+
+        <!-- Slot 3 -->
+        <div class="photo-slot" id="slot3" onclick="selectSlot(3)">
+          <img class="slot-photo" id="photo3" src="" alt="">
+          <div class="slot-placeholder" id="placeholder3">
+            <div class="wave-bg"></div><div class="sand-bg"></div>
+            <span class="se sm">🐚</span><span class="se lg">🐢</span><span class="se">🦀</span><span class="se sm">💎</span>
+          </div>
+          <div class="slot-lbl">📸 Pose!</div>
+          <div class="slot-spark">💫</div>
+          <div class="slot-num">3</div>
+          <button class="retake-btn" id="retake3" onclick="retakePhoto(3,event)">↩ Retake</button>
+        </div>
+
+        <div class="strip-bottom">
+          <div class="bottom-emojis">🎩🐚🪸🐢</div>
+          <div class="stamp">🌊</div>
+        </div>
+
+        <button class="print-btn" onclick="printStrip()">🐚 Print My Strip 🐚</button>
+      </div>
+    </div>
+    <div class="footer-tag">🪸 Pearl Cove Studios 🐚</div>
+  </div>
+
+</div>
+
+<script>
+  let currentSlot = 1;
+  let timerSeconds = 0;
+  let cameraStarted = false;
+  let isShooting = false;
+  const photos = { 1: null, 2: null, 3: null };
+
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+
+  function selectSlot(n) {
+    currentSlot = n;
+    [1,2,3].forEach(i => {
+      document.getElementById('slot'+i).classList.toggle('active-slot', i===n);
+      document.querySelectorAll('.slot-btn')[i-1].classList.toggle('active', i===n);
+    });
+    if (cameraStarted) setStatus('Slot '+n+' selected — ready to snap! 📸');
+  }
+
+  function setTimer(s, btn) {
+    timerSeconds = s;
+    document.querySelectorAll('.timer-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+
+  function setStatus(msg) {
+    document.getElementById('statusMsg').textContent = msg;
+  }
+
+  async function startCamera() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode:'user', width:480, height:400 }, audio:false
+      });
+      video.srcObject = stream;
+      document.getElementById('camPlaceholder').style.display = 'none';
+      document.getElementById('snapBtn').disabled = false;
+      document.getElementById('startCamBtn').style.display = 'none';
+      cameraStarted = true;
+      setStatus('Camera ready! Slot 1 selected 🎉');
+    } catch(e) {
+      setStatus('Camera access denied — please allow camera 😢');
+    }
+  }
+
+  async function takePhoto() {
+    if (isShooting) return;
+    isShooting = true;
+    document.getElementById('snapBtn').disabled = true;
+
+    if (timerSeconds > 0) await countdown(timerSeconds);
+
+    // Flash
+    const flash = document.getElementById('flashOverlay');
+    flash.style.opacity = '1';
+    setTimeout(() => { flash.style.opacity = '0'; }, 150);
+
+    // Capture
+    canvas.width = video.videoWidth || 480;
+    canvas.height = video.videoHeight || 400;
+    ctx.save();
+    ctx.translate(canvas.width, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, 0, 0);
+    ctx.restore();
+
+    const dataURL = canvas.toDataURL('image/jpeg', 0.92);
+    photos[currentSlot] = dataURL;
+
+    const img = document.getElementById('photo'+currentSlot);
+    img.src = dataURL;
+    img.classList.add('visible');
+    document.getElementById('placeholder'+currentSlot).style.display = 'none';
+    document.getElementById('retake'+currentSlot).classList.add('show');
+
+    const taken = Object.values(photos).filter(Boolean).length;
+    if (taken < 3) {
+      const next = [1,2,3].find(i => !photos[i]);
+      if (next) selectSlot(next);
+      setStatus('Photo '+taken+'/3 done! Now snap slot '+next+' 📸');
+    } else {
+      setStatus('All 3 photos taken! 🌊 Print your strip!');
+    }
+
+    isShooting = false;
+    document.getElementById('snapBtn').disabled = false;
+  }
+
+  function countdown(secs) {
+    return new Promise(resolve => {
+      const el = document.getElementById('countdownDisplay');
+      el.style.display = 'flex';
+      let n = secs;
+      el.textContent = n;
+      const iv = setInterval(() => {
+        n--;
+        if (n <= 0) { clearInterval(iv); el.style.display = 'none'; resolve(); }
+        else { el.textContent = n; }
+      }, 1000);
+    });
+  }
+
+  function retakePhoto(n, e) {
+    e.stopPropagation();
+    photos[n] = null;
+    document.getElementById('photo'+n).classList.remove('visible');
+    document.getElementById('photo'+n).src = '';
+    document.getElementById('placeholder'+n).style.display = '';
+    document.getElementById('retake'+n).classList.remove('show');
+    selectSlot(n);
+    setStatus('Slot '+n+' cleared — retake it! 📸');
+  }
+
+  function printStrip() {
+    const taken = Object.values(photos).filter(Boolean).length;
+    if (taken === 0) { setStatus('Take at least one photo first! 📸'); return; }
+
+    const slots = [
+      { label:'Snap!',  spark:'✨', emojis:'<span class="se">🐢</span><span class="se lg">🪸</span><span class="se">🐠</span><span class="se sm">🐚</span>' },
+      { label:'Smile!', spark:'🌟', emojis:'<span class="se sm">🦭</span><span class="se lg">🐡</span><span class="se">🪸</span><span class="se">⭐</span>' },
+      { label:'Pose!',  spark:'💫', emojis:'<span class="se sm">🐚</span><span class="se lg">🐢</span><span class="se">🦀</span><span class="se sm">💎</span>' },
+    ];
+
+    let slotHTML = '';
+    slots.forEach((s,i) => {
+      const p = photos[i+1];
+      slotHTML += `<div class="slot">`;
+      if (p) { slotHTML += `<img src="${p}" alt="">`; }
+      else { slotHTML += `<div class="placeholder"><div class="wave"></div><div class="sand"></div>${s.emojis}</div>`; }
+      slotHTML += `<div class="slbl">📸 ${s.label}</div><div class="ssp">${s.spark}</div></div>`;
+    });
+
+    const win = window.open('','_blank');
+    win.document.write(`<!DOCTYPE html><html><head>
+<meta charset="UTF-8"><title>My Ocean Photo Strip 🐚</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=Quicksand:wght@400;600;700&display=swap');
+  @page{size:4in 12in;margin:0}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{width:4in;height:12in;background:linear-gradient(160deg,#0d4f6e 0%,#1a7a8a 35%,#2aacb0 65%,#7ed4d8 100%);display:flex;align-items:center;justify-content:center;font-family:'Quicksand',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;overflow:hidden;position:relative}
+  .sw{position:absolute;bottom:0;font-size:38pt;opacity:0.55}
+  .strip{display:flex;flex-direction:column;align-items:center;width:3.3in;position:relative;z-index:2}
+  .hat{font-size:28pt;text-align:center;margin-bottom:-8px;filter:drop-shadow(0 4px 8px rgba(0,0,0,0.3))}
+  .frame-outer{width:100%;background:linear-gradient(135deg,#f5e6c8,#e8d5a0,#c9a84c,#e8d5a0,#f5e6c8);border-radius:20px;padding:11px;box-shadow:0 0 0 3px rgba(201,168,76,0.4),0 12px 40px rgba(0,0,0,0.5);position:relative}
+  .cd{position:absolute;font-size:13pt;z-index:5}
+  .tl{top:-7px;left:-7px;transform:rotate(-30deg)}.tr{top:-7px;right:-7px;transform:rotate(30deg)}.bl{bottom:-7px;left:-7px;transform:rotate(200deg)}.br{bottom:-7px;right:-7px;transform:rotate(150deg)}
+  .pearl-s{position:absolute;inset:3px;border-radius:14px;border:2px dashed rgba(255,255,255,0.5)}
+  .frame-inner{background:linear-gradient(180deg,#e8f8f8,#d0efef);border-radius:13px;padding:12px;display:flex;flex-direction:column;gap:8px}
+  .title{text-align:center}
+  h1{font-family:'Playfair Display',serif;font-size:15pt;color:#1a6b8a;letter-spacing:1px;line-height:1.2}
+  h1 em{font-style:italic;color:#2aacb0}
+  .sub{font-size:5.5pt;color:#4ab8b8;letter-spacing:3px;text-transform:uppercase;font-weight:600;margin-top:2px}
+  .prow{display:flex;align-items:center;justify-content:center;gap:4px;margin-top:4px}
+  .pd{width:6px;height:6px;background:radial-gradient(circle at 35% 35%,#fff,#d4c5b0);border-radius:50%}
+  .pd.b{width:9px;height:9px}
+  .slot{position:relative;width:100%;height:1.85in;border-radius:10px;overflow:hidden;border:2px solid rgba(255,255,255,0.6);box-shadow:0 3px 10px rgba(0,0,0,0.12);background:linear-gradient(135deg,#b8e8e8,#9dd4d4)}
+  .slot img{width:100%;height:100%;object-fit:cover}
+  .placeholder{position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:space-around;padding:4px 8px}
+  .wave{position:absolute;bottom:0;left:0;right:0;height:38%;background:linear-gradient(180deg,transparent,rgba(26,107,138,0.25));border-radius:0 0 8px 8px}
+  .sand{position:absolute;bottom:0;left:0;right:0;height:18%;background:linear-gradient(180deg,#e8d5a0,#d4c080);border-radius:0 0 8px 8px}
+  .se{font-size:20pt;position:relative;z-index:2;margin-bottom:8px}
+  .se.lg{font-size:24pt}.se.sm{font-size:14pt}
+  .slbl{position:absolute;top:5px;right:6px;background:rgba(255,255,255,0.75);border-radius:20px;padding:1px 7px;font-size:5pt;color:#1a6b8a;font-weight:700;letter-spacing:1px;text-transform:uppercase;z-index:3}
+  .ssp{position:absolute;top:5px;left:6px;font-size:10pt;z-index:3}
+  .sbot{display:flex;justify-content:space-between;align-items:center;padding:2px 0 0}
+  .be{display:flex;gap:4px;font-size:12pt}
+  .stamp{background:linear-gradient(135deg,#e8806a,#d45a45);color:white;border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-size:13pt;box-shadow:0 2px 8px rgba(232,128,106,0.5);border:2px solid rgba(255,255,255,0.4)}
+  .tag{margin-top:6px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);border-radius:20px;padding:3px 14px;font-size:5.5pt;color:rgba(255,255,255,0.9);letter-spacing:2px;text-transform:uppercase;font-weight:600;text-align:center}
+</style></head><body>
+<div class="sw" style="left:0">🌿</div>
+<div class="sw" style="right:0">🌿</div>
+<div class="strip">
+  <div class="hat">🪸🎩🪸</div>
+  <div class="frame-outer">
+    <div class="cd tl">🐚</div><div class="cd tr">🪸</div><div class="cd bl">🪸</div><div class="cd br">🐚</div>
+    <div class="pearl-s"></div>
+    <div class="frame-inner">
+      <div class="title">
+        <h1>Under the Sea<br><em>Photo Booth</em></h1>
+        <div class="sub">Dive in &amp; smile ✨</div>
+        <div class="prow"><div class="pd"></div><div class="pd b"></div><div class="pd"></div><div class="pd b"></div><div class="pd"></div></div>
+      </div>
+      ${slotHTML}
+      <div class="sbot"><div class="be">🎩🐚🪸🐢</div><div class="stamp">🌊</div></div>
+    </div>
+  </div>
+  <div class="tag">🪸 Pearl Cove Studios 🐚</div>
+</div>
+<script>window.onload=()=>window.print();<\/script>
+</body></html>`);
+    win.document.close();
+  }
+</script>
+</body>
+</html>
